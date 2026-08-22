@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <a class="button primary" href="{{ url_for('main.add_transaction_route') }}">Add Transaction</a>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card accent-green">
+      <span>Current Balance</span>
+      <strong>${{ '%.2f' % balance }}</strong>
+    </div>
+    <div class="stat-card accent-blue">
+      <span>Total Income</span>
+      <strong>${{ '%.2f' % total_income }}</strong>
+    </div>
+    <div class="stat-card accent-red">
+      <span>Total Expenses</span>
+      <strong>${{ '%.2f' % total_expenses }}</strong>
+    </div>
+    <div class="stat-card accent-purple">
+      <span>Budget Remaining</span>
+      <strong>${{ '%.2f' % remaining_budget }}</strong>
+    </div>
+    <div class="stat-card accent-gold">
+      <span>Saved Toward Goals</span>
+      <strong>${{ '%.2f' % savings }}</strong>
+    </div>
+  </div>
+
+  <div class="chart-grid two-col">
+    <div class="panel">
+      <h2>Income vs Expenses</h2>
+      <canvas id="incomeExpenseChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Spending by Category</h2>
+      <canvas id="categoryChart"></canvas>
+    </div>
+  </div>
+
+  <div class="chart-grid two-col">
+    <div class="panel">
+      <h2>Monthly Overview</h2>
+      <canvas id="monthlyTrendChart"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Recent Transactions</h2>
+      <ul class="transaction-list compact">
+        {% for transaction in recent_transactions %}
+          <li>
+            <div>
+              <strong>{{ transaction.description or transaction.category }}</strong>
+              <small>{{ transaction.date }} • {{ transaction.category }}</small>
+            </div>
+            <span class="amount {{ transaction.type }}">${{ '%.2f' % transaction.amount }}</span>
+          </li>
+        {% else %}
+          <li>No transactions yet.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    const incomeExpenseCtx = document.getElementById('incomeExpenseChart');
+    new Chart(incomeExpenseCtx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Income', 'Expenses'],
+        datasets: [{
+          data: [{{ total_income }}, {{ total_expenses }}],
+          backgroundColor: ['#22c55e', '#ef4444']
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+
+    const categoryCtx = document.getElementById('categoryChart');
+    const categoryLabels = {{ category_totals.keys() | list | tojson }};
+    const categoryValues = {{ category_totals.values() | list | tojson }};
+    new Chart(categoryCtx, {
+      type: 'bar',
+      data: {
+        labels: categoryLabels,
+        datasets: [{
+          label: 'Spent',
+          data: categoryValues,
+          backgroundColor: '#8b5cf6'
+        }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    const monthlyTrendCtx = document.getElementById('monthlyTrendChart');
+    new Chart(monthlyTrendCtx, {
+      type: 'line',
+      data: {
+        labels: {{ months | tojson }},
+        datasets: [
+          {
+            label: 'Income',
+            data: {{ monthly_income | tojson }},
+            borderColor: '#22c55e',
+            backgroundColor: 'rgba(34, 197, 94, 0.2)',
+            tension: 0.3
+          },
+          {
+            label: 'Expenses',
+            data: {{ monthly_expense | tojson }},
+            borderColor: '#ef4444',
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+  </script>
+{% endblock %}

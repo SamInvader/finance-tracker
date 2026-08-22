@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}{% if mode == 'edit' %}Edit Transaction{% else %}Add Transaction{% endif %}{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <h1>{% if mode == 'edit' %}Edit Transaction{% else %}Add Transaction{% endif %}</h1>
+  </div>
+
+  <div class="panel form-panel">
+    <form method="post" class="stacked-form">
+      <div class="form-row">
+        <label>Type</label>
+        <select name="type" required>
+          <option value="income" {% if transaction and transaction.type == 'income' %}selected{% endif %}>Income</option>
+          <option value="expense" {% if transaction and transaction.type == 'expense' %}selected{% endif %}>Expense</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>Amount</label>
+        <input type="number" name="amount" min="0.01" step="0.01" value="{{ transaction.amount if transaction else '' }}" required />
+      </div>
+
+      <div class="form-row">
+        <label>Category</label>
+        <select name="category" required>
+          {% set categories = expense_categories + income_categories %}
+          {% for category in categories %}
+            <option value="{{ category }}" {% if transaction and transaction.category == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="form-row">
+        <label>Date</label>
+        <input type="date" name="date" value="{{ transaction.date if transaction else '' }}" required />
+      </div>
+
+      <div class="form-row">
+        <label>Description</label>
+        <input type="text" name="description" value="{{ transaction.description if transaction else '' }}" maxlength="255" placeholder="Optional notes" />
+      </div>
+
+      <div class="form-actions">
+        <button class="button primary" type="submit">{% if mode == 'edit' %}Save Changes{% else %}Add Transaction{% endif %}</button>
+        <a class="button secondary" href="{{ url_for('main.transactions') }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

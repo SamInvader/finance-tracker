@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% block title %}Welcome{% endblock %}
+
+{% block content %}
+  <div class="hero-card">
+    <div class="hero-copy">
+      <p class="eyebrow">Welcome</p>
+      <h1>Set up your local finance profile</h1>
+      <p>Create your first account, secure it with a password, and start tracking money without any online service.</p>
+      <div class="hero-actions">
+        <button id="homeCreateAccountBtn" class="button primary" type="button">Create account</button>
+        <button id="homeSwitchAccountBtn" class="button secondary" type="button">Switch account</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="home-grid">
+    <div class="panel">
+      <h2>Why this is local-first</h2>
+      <ul>
+        <li>Accounts stay on this device</li>
+        <li>Passwords are hashed and stored locally</li>
+        <li>Each account keeps its own finance data</li>
+        <li>Theme and settings are remembered automatically</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Quick access</h2>
+      <div class="inline-account-actions">
+        <button id="homeLocalLoginBtn" class="button primary" type="button">Login with selected profile</button>
+      </div>
+      <div class="mini-list" id="homeAccountList"></div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script>
+    (async function () {
+      const HOME_STORAGE_KEY = 'finance_tracker_local_profiles';
+      const ACTIVE_ACCOUNT_KEY = 'finance_tracker_active_account';
+      const THEME_KEY = 'finance_tracker_theme';
+      const ACCOUNT_DATA_KEY = 'finance_tracker_account_data';
+
+      const safeParse = (value, fallback) => {
+        try {
+          return JSON.parse(value) ?? fallback;
+        } catch {
+          return fallback;
+        }
+      };
+
+      const getProfiles = () => {
+        const raw = localStorage.getItem(HOME_STORAGE_KEY);
+        if (!raw) {
+          return [];
+        }
+        return safeParse(raw, []);
+      };
+
+      const hexToBytes = (hex) => {
+        const bytes = [];
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes.push(parseInt(hex.slice(i, i + 2), 16));
+        }
+        return new Uint8Array(bytes);
+      };
+
+      const bytesToHex = (bytes) => Array.from(bytes).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+      const generateSalt = () => {
+        const salt = new Uint8Array(16);
+        if (window.crypto && window.crypto.getRandomValues) {
+          window.crypto.getRandomValues(salt);
+        }
+        return salt;
+      };
+
+      const hashPassword = async (password, saltBytes = null) => {
+        const encoder = new TextEncoder();
+        const salt = saltBytes || generateSalt();
+        const key = await window.crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
+        const bits = await window.crypto.subtle.deriveBits({
+          name: 'PBKDF2',
+          salt,
+          iterations: 120000,
+          hash: 'SHA-256',
+        }, key, 256);
+        return `${bytesToHex(salt)}:${bytesToHex(new Uint8Array(bits))}`;
+      };
+
+      const verifyPasswordHash = async (password, storedHash) => {
+        if (!storedHash || !storedHash.includes(':')) return false;
+        const [saltHex, hashHex] = storedHash.split(':');
+        if (!saltHex || !hashHex) return false;
+        const computed = await hashPassword(password, hexToBytes(saltHex));
+        return computed === storedHash;
+      };
+
+      const setTheme = (themeName) => {
+        document.body.setAttribute('data-theme', themeName || 'professional-blue');
+        localStorage.setItem(THEME_KEY, themeName || 'professional-blue');
+      };
+
+      const renderHomeAccounts = () => {
+        const profiles = getProfiles();
+        const list = document.getElementById('homeAccountList');
+        if (!list) return;
+        list.innerHTML = '';
+
+        if (!profiles.length) {
+          list.innerHTML = '<p>No accounts yet.</p>';
+          return;
+        }
+
+        profiles.forEach((profile) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'profile-preview';
+          item.textContent = profile.name;
+          item.addEventListener('click', () => {
+            const activeId = localStorage.getItem(ACTIVE_ACCOUNT_KEY) || profile.id;
+            const selected = profiles.find((candidate) => candidate.id === activeId) || profile;
+            const password = window.prompt(`Enter password for ${selected.name}:`, '');
+            if (password === null) return;
+            verifyPasswordHash(password, selected.passwordHash || '').then((isValid) => {
+              if (!isValid) {
+                alert('Incorrect password.');
+                return;
+              }
+              localStorage.setItem(ACTIVE_ACCOUNT_KEY, selected.id);
+              window.location.href = '/';
+            });
+          });
+          list.appendChild(item);
+        });
+      };
+
+      const createAccount = async (name, password) => {
+        const profiles = getProfiles();
+        const trimmedName = name.trim();
+        if (!trimmedName || !password || !password.trim()) return false;
+        const duplicate = profiles.some((profile) => profile.name.toLowerCase() === trimmedName.toLowerCase());
+        if (duplicate) {
+          alert('An account with that name already exists.');
+          return false;
+        }
+
+        const newProfile = {
+          id: `profile-${Date.now()}`,
+          name: trimmedName,
+          createdAt: Date.now(),
+          passwordHash: await hashPassword(password.trim()),
+        };
+
+        profiles.push(newProfile);
+        localStorage.setItem(HOME_STORAGE_KEY, JSON.stringify(profiles));
+        localStorage.setItem(ACTIVE_ACCOUNT_KEY, newProfile.id);
+        localStorage.setItem(`${ACCOUNT_DATA_KEY}:${newProfile.id}`, JSON.stringify({ transactions: [], budgets: {}, goals: [] }));
+        return true;
+      };
+
+      const createButton = document.getElementById('homeCreateAccountBtn');
+      const switchButton = document.getElementById('homeSwitchAccountBtn');
+      const loginButton = document.getElementById('homeLocalLoginBtn');
+
+      setTheme(localStorage.getItem(THEME_KEY) || 'professional-blue');
+      renderHomeAccounts();
+
+      if (createButton) {
+        createButton.addEventListener('click', async () => {
+          const name = window.prompt('Choose a name for this finance account:', 'My Account');
+          if (!name || !name.trim()) return;
+          const password = window.prompt('Set a password for this account:', '');
+          if (password === null || !password.trim()) {
+            alert('A password is required.');
+            return;
+          }
+          const created = await createAccount(name, password);
+          if (created) {
+            window.location.href = '/';
+          }
+        });
+      }
+
+      if (switchButton) {
+        switchButton.addEventListener('click', () => {
+          const profiles = getProfiles();
+          if (!profiles.length) {
+            alert('No accounts exist yet.');
+            return;
+          }
+          const options = profiles.map((profile) => profile.name).join(', ');
+          const choice = window.prompt(`Choose a profile to switch to:\n${options}`, profiles[0].name);
+          if (!choice) return;
+          const selected = profiles.find((profile) => profile.name.toLowerCase() === choice.trim().toLowerCase());
+          if (!selected) {
+            alert('That account was not found.');
+            return;
+          }
+          const password = window.prompt(`Enter password for ${selected.name}:`, '');
+          if (password === null) return;
+          verifyPasswordHash(password, selected.passwordHash || '').then((isValid) => {
+            if (!isValid) {
+              alert('Incorrect password.');
+              return;
+            }
+            localStorage.setItem(ACTIVE_ACCOUNT_KEY, selected.id);
+            window.location.href = '/';
+          });
+        });
+      }
+
+      if (loginButton) {
+        loginButton.addEventListener('click', () => {
+          const profiles = getProfiles();
+          if (!profiles.length) {
+            alert('No accounts exist yet.');
+            return;
+          }
+          const currentId = localStorage.getItem(ACTIVE_ACCOUNT_KEY) || profiles[0].id;
+          const active = profiles.find((profile) => profile.id === currentId) || profiles[0];
+          const password = window.prompt(`Enter password for ${active.name}:`, '');
+          if (password === null) return;
+          verifyPasswordHash(password, active.passwordHash || '').then((isValid) => {
+            if (!isValid) {
+              alert('Incorrect password.');
+              return;
+            }
+            localStorage.setItem(ACTIVE_ACCOUNT_KEY, active.id);
+            window.location.href = '/';
+          });
+        });
+      }
+    })();
+  </script>
+{% endblock %}

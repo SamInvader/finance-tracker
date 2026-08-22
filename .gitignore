@@ -1,0 +1,9 @@
+# Virtual env
+.venv/
+__pycache__/
+.pytest_cache/
+instance/
+*.pyc
+.DS_Store
+dist/
+build/

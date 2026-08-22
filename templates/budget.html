@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Monthly Budget{% endblock %}
+
+{% block content %}
+  <div class="page-header">
+    <h1>Monthly Budget</h1>
+  </div>
+
+  <div class="panel budget-panel">
+    <div class="budget-summary">
+      <div>
+        <span>Budget Amount</span>
+        <strong>${{ '%.2f' % configured_amount }}</strong>
+      </div>
+      <div>
+        <span>Spent</span>
+        <strong>${{ '%.2f' % spent }}</strong>
+      </div>
+      <div>
+        <span>Remaining</span>
+        <strong>${{ '%.2f' % remaining }}</strong>
+      </div>
+    </div>
+
+    <div class="progress-wrap">
+      <div class="progress-bar">
+        <div class="progress-fill {% if percent_used >= 100 %}danger{% elif percent_used >= 80 %}warning{% endif %}" style="width: {{ '%.2f' % percent_used }}%"></div>
+      </div>
+      <div class="percent-label">{{ '%.2f' % percent_used }}% used</div>
+    </div>
+
+    {% if percent_used >= 80 %}
+      <div class="alert warning">You are approaching your monthly budget limit.</div>
+    {% endif %}
+    {% if percent_used >= 100 %}
+      <div class="alert danger">Your spending has reached or exceeded the monthly budget.</div>
+    {% endif %}
+  </div>
+
+  <div class="panel form-panel">
+    <form method="post" class="stacked-form">
+      <div class="form-row">
+        <label>Monthly Budget Amount</label>
+        <input type="number" name="amount" min="0" step="0.01" value="{{ configured_amount }}" required />
+      </div>
+      <div class="form-actions">
+        <button class="button primary" type="submit">Save Budget</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}
