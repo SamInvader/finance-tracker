@@ -407,7 +407,7 @@ button, input, select, textarea {
 }
 
 .button.secondary {
-  background: #e5e7eb;
+  background: var(--panel-alt);
   color: var(--text);
 }
 
