@@ -1,24 +1,29 @@
 from datetime import datetime
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 
 from finance_tracker.data_access import (
     EXPENSE_CATEGORIES,
     INCOME_CATEGORIES,
+    add_budget_item,
     add_transaction,
     create_savings_goal,
+    delete_budget_item,
     delete_transaction as delete_txn,
     get_all_months,
     get_budget_for_month,
+    get_budget_items,
     get_monthly_expense_by_category,
     get_monthly_summary,
     get_savings_goals,
+    get_smart_daily_budget,
     get_transaction_by_id,
     get_transactions,
     save_budget,
     update_savings_goal,
     update_transaction,
 )
+from finance_tracker.database import reset_all_account_data
 
 main_bp = Blueprint("main", __name__)
 
@@ -44,6 +49,8 @@ def index():
 
     savings = sum(float(goal["current_amount"]) for goal in get_savings_goals())
     recent_transactions = get_transactions()[:6]
+    smart_budget = get_smart_daily_budget(current_month)
+    budget_items = get_budget_items()
 
     category_totals = {}
     for txn in monthly_transactions:
@@ -78,7 +85,25 @@ def index():
         monthly_income=income_series,
         monthly_expense=expense_series,
         months=history,
+        smart_budget=smart_budget,
+        budget_items=budget_items,
     )
+
+
+@main_bp.route("/set-active-account", methods=["POST"])
+def set_active_account():
+    account_id = request.form.get("account_id", "default").strip()
+    response = jsonify({"status": "ok", "account_id": account_id})
+    response.set_cookie("active_account_id", account_id, max_age=60 * 60 * 24 * 365, samesite="Lax", path="/")
+    return response
+
+
+@main_bp.route("/reset-local-data", methods=["POST"])
+def reset_local_data():
+    reset_all_account_data()
+    response = jsonify({"status": "ok"})
+    response.set_cookie("active_account_id", "", expires=0, path="/")
+    return response
 
 
 @main_bp.route("/transactions")
@@ -210,6 +235,26 @@ def budget():
     budget_record = get_budget_for_month(current_month)
 
     if request.method == "POST":
+        if request.form.get("action") == "add_item":
+            name = request.form.get("name", "").strip()
+            amount = request.form.get("amount", type=float)
+            if not name:
+                flash("Item name is required.", "error")
+                return redirect(url_for("main.budget"))
+            if amount is None or amount <= 0:
+                flash("Item amount must be greater than zero.", "error")
+                return redirect(url_for("main.budget"))
+            add_budget_item(name, amount, current_month)
+            flash("Wish list item added successfully.", "success")
+            return redirect(url_for("main.budget"))
+
+        if request.form.get("action") == "delete_item":
+            item_id = request.form.get("item_id", type=int)
+            if item_id:
+                delete_budget_item(item_id)
+            flash("Item removed from wishlist.", "success")
+            return redirect(url_for("main.budget"))
+
         amount = request.form.get("amount", type=float)
         if amount is None or amount < 0:
             flash("Budget amount must be zero or greater.", "error")
@@ -223,6 +268,7 @@ def budget():
     configured_amount = float(budget_record["amount"]) if budget_record else 0.0
     remaining = configured_amount - spent
     percent_used = (spent / configured_amount * 100) if configured_amount else 0.0
+    budget_items = get_budget_items()
 
     return render_template(
         "budget.html",
@@ -231,6 +277,7 @@ def budget():
         remaining=remaining,
         percent_used=percent_used,
         configured_amount=configured_amount,
+        budget_items=budget_items,
     )
 
 

@@ -1,15 +1,15 @@
 {% extends 'base.html' %}
-{% block title %}Monthly Budget{% endblock %}
+{% block title %}Budget & Wishlist{% endblock %}
 
 {% block content %}
   <div class="page-header">
-    <h1>Monthly Budget</h1>
+    <h1>Budget & Wishlist</h1>
   </div>
 
   <div class="panel budget-panel">
     <div class="budget-summary">
       <div>
-        <span>Budget Amount</span>
+        <span>Target Budget</span>
         <strong>${{ '%.2f' % configured_amount }}</strong>
       </div>
       <div>
@@ -47,5 +47,49 @@
         <button class="button primary" type="submit">Save Budget</button>
       </div>
     </form>
+  </div>
+
+  <div class="panel form-panel">
+    <h2>Add a purchase to your wishlist</h2>
+    <form method="post" class="stacked-form">
+      <input type="hidden" name="action" value="add_item" />
+      <div class="form-row">
+        <label>Item name</label>
+        <input type="text" name="name" required />
+      </div>
+      <div class="form-row">
+        <label>Expected amount</label>
+        <input type="number" name="amount" min="0.01" step="0.01" required />
+      </div>
+      <div class="form-actions">
+        <button class="button primary" type="submit">Add To Wishlist</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="panel">
+    <h2>Wishlist</h2>
+    {% if budget_items %}
+      <ul class="wishlist-list">
+        {% for item in budget_items %}
+          <li>
+            <div>
+              <strong>{{ item.name }}</strong>
+              <small>${{ '%.2f' % item.amount }}</small>
+            </div>
+            <div class="row-actions">
+              <span class="badge {% if item.is_purchased %}income{% else %}expense{% endif %}">{{ 'Bought' if item.is_purchased else 'Planned' }}</span>
+              <form method="post">
+                <input type="hidden" name="action" value="delete_item" />
+                <input type="hidden" name="item_id" value="{{ item.id }}" />
+                <button class="button small danger" type="submit">Remove</button>
+              </form>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No wishlist items yet.</p>
+    {% endif %}
   </div>
 {% endblock %}

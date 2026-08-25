@@ -4,7 +4,10 @@
 {% block content %}
   <div class="page-header">
     <h1>Dashboard</h1>
-    <a class="button primary" href="{{ url_for('main.add_transaction_route') }}">Add Transaction</a>
+    <div class="header-actions">
+      <button class="button secondary" type="button" id="switchAccountDashboardBtn">Switch account</button>
+      <a class="button primary" href="{{ url_for('main.add_transaction_route') }}">Add Transaction</a>
+    </div>
   </div>
 
   <div class="stats-grid">
@@ -27,6 +30,50 @@
     <div class="stat-card accent-gold">
       <span>Saved Toward Goals</span>
       <strong>${{ '%.2f' % savings }}</strong>
+    </div>
+  </div>
+
+  <div class="smart-grid">
+    <div class="panel">
+      <h2>Smart Spending Guide</h2>
+      <div class="smart-metrics">
+        <div>
+          <span>Daily spending cap</span>
+          <strong>${{ '%.2f' % smart_budget.daily_budget }}</strong>
+        </div>
+        <div>
+          <span>Save per day</span>
+          <strong>${{ '%.2f' % smart_budget.suggested_save_per_day }}</strong>
+        </div>
+        <div>
+          <span>Monthly cap</span>
+          <strong>${{ '%.2f' % smart_budget.spending_limit }}</strong>
+        </div>
+      </div>
+      <ul class="note-list">
+        {% for note in smart_budget.notes %}
+          <li>{{ note }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Wishlist / Planned Purchases</h2>
+      {% if budget_items %}
+        <ul class="wishlist-list">
+          {% for item in budget_items %}
+            <li>
+              <div>
+                <strong>{{ item.name }}</strong>
+                <small>${{ '%.2f' % item.amount }}</small>
+              </div>
+              <span class="badge {% if item.is_purchased %}income{% else %}expense{% endif %}">{{ 'Bought' if item.is_purchased else 'Planned' }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No planned purchases yet.</p>
+      {% endif %}
     </div>
   </div>
 
@@ -127,6 +174,23 @@
         maintainAspectRatio: false,
         scales: { y: { beginAtZero: true } }
       }
+    });
+
+    document.getElementById('switchAccountDashboardBtn')?.addEventListener('click', function () {
+      const profiles = JSON.parse(localStorage.getItem('finance_tracker_local_profiles') || '[]');
+      if (!profiles.length) {
+        window.location.href = '/home';
+        return;
+      }
+      const name = window.prompt('Type the account name to switch to:\n' + profiles.map((p) => p.name).join(', '), profiles[0].name);
+      if (!name) return;
+      const selected = profiles.find((profile) => profile.name.toLowerCase() === name.trim().toLowerCase());
+      if (!selected) {
+        alert('That account was not found.');
+        return;
+      }
+      localStorage.setItem('finance_tracker_active_account', selected.id);
+      window.location.reload();
     });
   </script>
 {% endblock %}
