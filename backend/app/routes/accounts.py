@@ -9,7 +9,7 @@ accounts_bp = Blueprint('accounts', __name__)
 @accounts_bp.route('/', methods=['GET'])
 @jwt_required()
 def list_accounts():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     accounts = Account.query.filter_by(user_id=user_id).all()
     return jsonify([{
         'id': a.id,
@@ -26,7 +26,7 @@ def list_accounts():
 @accounts_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_account():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json() or {}
     name = data.get('name')
     if not name:

@@ -24,8 +24,16 @@ def create_app(test_config=None):
     # register blueprints
     from .routes.auth import auth_bp
     from .routes.accounts import accounts_bp
+    from .routes.transactions import tx_bp
+    from .routes.categories import categories_bp
+    from .routes.budgets import budgets_bp
+    from .routes.goals import goals_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(accounts_bp, url_prefix='/api/accounts')
+    app.register_blueprint(tx_bp, url_prefix='/api/transactions')
+    app.register_blueprint(categories_bp, url_prefix='/api/categories')
+    app.register_blueprint(budgets_bp, url_prefix='/api/budgets')
+    app.register_blueprint(goals_bp, url_prefix='/api/goals')
 
     return app

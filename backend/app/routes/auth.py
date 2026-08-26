@@ -21,7 +21,7 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    access = create_access_token(identity=user.id)
+    access = create_access_token(identity=str(user.id))
     return jsonify({'access_token': access, 'user': {'id': user.id, 'email': user.email, 'name': user.name}}), 201
 
 
@@ -33,7 +33,7 @@ def login():
     user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(password):
         return jsonify({'msg': 'Invalid credentials'}), 401
-    access = create_access_token(identity=user.id)
+    access = create_access_token(identity=str(user.id))
     return jsonify({'access_token': access, 'user': {'id': user.id, 'email': user.email, 'name': user.name}})
 
 
