@@ -41,6 +41,11 @@ export default function Dashboard(){
       {user ? (
         <div>
           <div className="mb-4">Welcome, <strong>{user.name || user.email}</strong></div>
+          <nav className="mb-4 space-x-3">
+            <a href="/accounts" className="text-blue-600">Accounts</a>
+            <a href="/transactions" className="text-blue-600">Transactions</a>
+            <a href="/budgets" className="text-blue-600">Budgets</a>
+          </nav>
           <pre className="mb-4">{JSON.stringify(user,null,2)}</pre>
           <button onClick={logout} className="px-3 py-2 bg-red-500 text-white rounded">Logout</button>
         </div>
