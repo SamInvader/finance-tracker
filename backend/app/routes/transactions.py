@@ -1,96 +1,57 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from backend.app.extensions import db
-from backend.app.models import Transaction, Account
+
+from ..extensions import db
+from ..models import Transaction
+from ..services.transactions import create_transaction as service_create, delete_transaction as service_delete, list_transactions as service_list, update_transaction as service_update
+from ..utils.responses import error, success
 
 tx_bp = Blueprint("transactions", __name__)
 
 
-@tx_bp.route("/", methods=["GET"])
+@tx_bp.route("", methods=["GET"])
 @jwt_required()
 def list_transactions():
     user_id = int(get_jwt_identity())
-    txs = (
-        Transaction.query.filter_by(user_id=user_id)
-        .order_by(Transaction.date.desc())
-        .all()
-    )
-    result = []
-    for t in txs:
-        result.append(
-            {
-                "id": t.id,
-                "amount": float(t.amount),
-                "type": t.type,
-                "date": t.date.isoformat(),
-                "description": t.description,
-                "account_id": t.account_id,
-                "category_id": t.category_id,
-            }
-        )
-    return jsonify(result)
+    payload = service_list(user_id, request.args.to_dict())
+    return success(payload)
 
 
-@tx_bp.route("/", methods=["POST"])
+@tx_bp.route("", methods=["POST"])
 @jwt_required()
 def create_transaction():
     user_id = int(get_jwt_identity())
     data = request.get_json() or {}
-    account_id = data.get("account_id")
-    try:
-        account = Account.query.filter_by(id=account_id, user_id=user_id).first()
-    except Exception:
-        account = None
-    if not account:
-        return jsonify({"msg": "account not found or not owned by user"}), 404
-    t = Transaction(
-        user_id=user_id,
-        account_id=account_id,
-        category_id=data.get("category_id"),
-        amount=data.get("amount", 0),
-        type=data.get("type", "expense"),
-        description=data.get("description"),
-    )
-    db.session.add(t)
-    db.session.commit()
-    return jsonify({"id": t.id}), 201
+    tx, validation_errors = service_create(user_id, data)
+    if validation_errors:
+        return error("Could not create transaction", 400, validation_errors)
+    return success(tx, status=201)
 
 
 @tx_bp.route("/<int:tx_id>", methods=["GET"])
 @jwt_required()
 def get_transaction(tx_id):
     user_id = int(get_jwt_identity())
-    t = Transaction.query.filter_by(id=tx_id, user_id=user_id).first_or_404()
-    return jsonify(
-        {
-            "id": t.id,
-            "amount": float(t.amount),
-            "type": t.type,
-            "date": t.date.isoformat(),
-            "description": t.description,
-        }
-    )
+    tx = Transaction.query.filter_by(id=tx_id, user_id=user_id).first_or_404()
+    return success(tx.to_dict())
 
 
-@tx_bp.route("/<int:tx_id>", methods=["PUT"])
+@tx_bp.route("/<int:tx_id>", methods=["PATCH"])
 @jwt_required()
 def update_transaction(tx_id):
     user_id = int(get_jwt_identity())
-    t = Transaction.query.filter_by(id=tx_id, user_id=user_id).first_or_404()
     data = request.get_json() or {}
-    if "amount" in data:
-        t.amount = data.get("amount")
-    if "description" in data:
-        t.description = data.get("description")
-    db.session.commit()
-    return jsonify({"msg": "updated"})
+    tx, validation_errors = service_update(user_id, tx_id, data)
+    if validation_errors:
+        return error("Could not update transaction", 400, validation_errors if isinstance(validation_errors, dict) else {"error": validation_errors})
+    return success(tx)
 
 
 @tx_bp.route("/<int:tx_id>", methods=["DELETE"])
 @jwt_required()
 def delete_transaction(tx_id):
     user_id = int(get_jwt_identity())
-    t = Transaction.query.filter_by(id=tx_id, user_id=user_id).first_or_404()
-    db.session.delete(t)
-    db.session.commit()
-    return jsonify({"msg": "deleted"})
+    ok, validation_errors = service_delete(user_id, tx_id)
+    if validation_errors:
+        return error("Could not delete transaction", 400, validation_errors)
+    return success({"deleted": True})

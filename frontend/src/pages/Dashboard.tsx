@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react'
-import api, { setToken } from '../api'
+import api, { setToken } from '../services/api'
 
 export default function Dashboard(){
   const [user, setUser] = useState<any>(null)

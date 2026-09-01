@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import api from '../api'
+import api from '../services/api'
 import { Link } from 'react-router-dom'
 
 type Tx = {

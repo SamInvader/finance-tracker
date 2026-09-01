@@ -1,13 +1,13 @@
 from flask import Blueprint, request, jsonify
-from backend.app.extensions import db
-from backend.app.models import User
 from flask_jwt_extended import (
     create_access_token,
     jwt_required,
     get_jwt_identity,
     get_jwt,
 )
-from backend.app.extensions import token_blocklist
+from ..extensions import db, token_blocklist
+from ..models import User
+from ..services.defaults import seed_user_defaults
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -25,19 +25,19 @@ def register():
     user = User(email=email, name=name)
     user.set_password(password)
     db.session.add(user)
+    db.session.flush()
+    seed_user_defaults(user)
     db.session.commit()
-        access = create_access_token(
-            identity=str(user.id)
-        )
-    return (
-        jsonify(
-            {
-                "access_token": access,
-                "user": {"id": user.id, "email": user.email, "name": user.name},
-            }
-        ),
-        201,
-    )
+    access = create_access_token(identity=str(user.id))
+    payload = {
+        "data": {
+            "token": access,
+            "user": {"id": user.id, "email": user.email, "name": user.name},
+        },
+        "token": access,
+        "user": {"id": user.id, "email": user.email, "name": user.name},
+    }
+    return jsonify(payload), 201
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -48,15 +48,16 @@ def login():
     user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(password):
         return jsonify({"msg": "Invalid credentials"}), 401
-        access = create_access_token(
-            identity=str(user.id)
-        )
-    return jsonify(
-        {
-            "access_token": access,
+    access = create_access_token(identity=str(user.id))
+    payload = {
+        "data": {
+            "token": access,
             "user": {"id": user.id, "email": user.email, "name": user.name},
-        }
-    )
+        },
+        "token": access,
+        "user": {"id": user.id, "email": user.email, "name": user.name},
+    }
+    return jsonify(payload)
 
 
 @auth_bp.route("/me", methods=["GET"])

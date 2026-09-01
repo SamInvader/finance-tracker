@@ -1,9 +1,18 @@
-# Virtual env
 .venv/
+venv/
 __pycache__/
+*.py[cod]
 .pytest_cache/
+.coverage
+htmlcov/
 instance/
-*.pyc
+*.db
+*.sqlite3
+.env
+backend/uploads/
+frontend/node_modules/
+frontend/dist/
 .DS_Store
-dist/
-build/
+.idea/
+.vscode/
+*.log

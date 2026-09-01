@@ -14,10 +14,24 @@ class Config:
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "change-me")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
 
+    @staticmethod
+    def init_app(app):
+        pass
+
 
 class DevConfig(Config):
     DEBUG = True
 
 
+class TestConfig(Config):
+    TESTING = True
+    DEBUG = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+
+
 class ProdConfig(Config):
     DEBUG = False
+
+
+class DemoConfig(Config):
+    DEBUG = True
