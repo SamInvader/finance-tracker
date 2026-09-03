@@ -1,5 +1,6 @@
 import React, {useEffect, useState} from 'react'
 import api, { setToken } from '../services/api'
+import { Link } from 'react-router-dom'
 
 export default function Dashboard(){
   const [user, setUser] = useState<any>(null)
@@ -7,16 +8,28 @@ export default function Dashboard(){
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [summary, setSummary] = useState({ accounts: 0, balance: 0, transactions: 0, budgetSpent: 0 })
 
   useEffect(()=>{
-    api.get('/api/auth/me').then(r=>setUser(r.data)).catch(()=>setUser(null))
+    api.get('/api/auth/me').then(r=>{
+      setUser(r.data)
+      return Promise.all([api.get('/api/accounts'), api.get('/api/transactions'), api.get('/api/budgets')])
+    }).then(([accounts, transactions, budgets])=>{
+      const accountItems = accounts.data.data.accounts || []
+      setSummary({
+        accounts: accountItems.length,
+        balance: accountItems.reduce((total: number, account: any) => total + Number(account.balance || 0), 0),
+        transactions: transactions.data.data.total || 0,
+        budgetSpent: Number(budgets.data.data.spent || 0),
+      })
+    }).catch(()=>setUser(null))
   },[])
 
   async function login(e: React.FormEvent){
     e.preventDefault(); setError(null)
     try{
       const res = await api.post('/api/auth/login', { email, password })
-      setToken(res.data.access_token)
+      setToken(res.data.token)
       setUser(res.data.user)
     }catch(err:any){ setError(err?.response?.data?.msg || 'login failed') }
   }
@@ -25,7 +38,7 @@ export default function Dashboard(){
     e.preventDefault(); setError(null)
     try{
       const res = await api.post('/api/auth/register', { email, password, name })
-      setToken(res.data.access_token)
+      setToken(res.data.token)
       setUser(res.data.user)
     }catch(err:any){ setError(err?.response?.data?.msg || 'register failed') }
   }
@@ -36,17 +49,22 @@ export default function Dashboard(){
   }
 
   return (
-    <div className="p-6 max-w-xl">
-      <h1 className="text-2xl font-bold mb-4">Dashboard</h1>
+    <div className="p-6 max-w-4xl">
+      <h1 className="text-3xl font-bold mb-2">Ledgerly</h1>
       {user ? (
         <div>
-          <div className="mb-4">Welcome, <strong>{user.name || user.email}</strong></div>
-          <nav className="mb-4 space-x-3">
-            <a href="/accounts" className="text-blue-600">Accounts</a>
-            <a href="/transactions" className="text-blue-600">Transactions</a>
-            <a href="/budgets" className="text-blue-600">Budgets</a>
+          <div className="mb-6 text-slate-600">Welcome back, <strong>{user.name || user.email}</strong></div>
+          <div className="grid gap-3 sm:grid-cols-4 mb-6">
+            <div className="border rounded p-4"><div className="text-sm text-slate-500">Balance</div><strong>{summary.balance.toFixed(2)} NGN</strong></div>
+            <div className="border rounded p-4"><div className="text-sm text-slate-500">Accounts</div><strong>{summary.accounts}</strong></div>
+            <div className="border rounded p-4"><div className="text-sm text-slate-500">Transactions</div><strong>{summary.transactions}</strong></div>
+            <div className="border rounded p-4"><div className="text-sm text-slate-500">Budget spent</div><strong>{summary.budgetSpent.toFixed(2)} NGN</strong></div>
+          </div>
+          <nav className="mb-6 flex gap-3 flex-wrap">
+            <Link to="/accounts" className="px-4 py-2 rounded bg-blue-600 text-white">Accounts</Link>
+            <Link to="/transactions" className="px-4 py-2 rounded bg-blue-600 text-white">Transactions</Link>
+            <Link to="/budgets" className="px-4 py-2 rounded bg-blue-600 text-white">Budgets</Link>
           </nav>
-          <pre className="mb-4">{JSON.stringify(user,null,2)}</pre>
           <button onClick={logout} className="px-3 py-2 bg-red-500 text-white rounded">Logout</button>
         </div>
       ) : (
